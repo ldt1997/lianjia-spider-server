@@ -1,86 +1,39 @@
-#!/usr/bin/env node
+var express = require("express");
+var app = express();
 
-/**
- * Module dependencies.
- */
+//  主页输出 "Hello World"
+app.get("/", function(req, res) {
+  console.log("主页 GET 请求");
+  res.send("Hello GET");
+});
 
-var app = require("../app");
-var debug = require("debug")("lianjiaserver:server");
-var http = require("http");
+//  POST 请求
+app.post("/", function(req, res) {
+  console.log("主页 POST 请求");
+  res.send("Hello POST");
+});
 
-/**
- * Get port from environment and store in Express.
- */
+//  /del_user 页面响应
+app.get("/del_user", function(req, res) {
+  console.log("/del_user 响应 DELETE 请求");
+  res.send("删除页面");
+});
 
-var port = normalizePort(process.env.PORT || "8090");
-app.set("port", port);
+//  /list_user 页面 GET 请求
+app.get("/list_user", function(req, res) {
+  console.log("/list_user GET 请求");
+  res.send("用户列表页面");
+});
 
-/**
- * Create HTTP server.
- */
+// 对页面 abcd, abxcd, ab123cd, 等响应 GET 请求
+app.get("/ab*cd", function(req, res) {
+  console.log("/ab*cd GET 请求");
+  res.send("正则匹配");
+});
 
-var server = http.createServer(app);
+var server = app.listen(8090, function() {
+  var host = server.address().address;
+  var port = server.address().port;
 
-/**
- * Listen on provided port, on all network interfaces.
- */
-
-server.listen(port);
-server.on("error", onError);
-server.on("listening", onListening);
-
-/**
- * Normalize a port into a number, string, or false.
- */
-
-function normalizePort(val) {
-  var port = parseInt(val, 10);
-
-  if (isNaN(port)) {
-    // named pipe
-    return val;
-  }
-
-  if (port >= 0) {
-    // port number
-    return port;
-  }
-
-  return false;
-}
-
-/**
- * Event listener for HTTP server "error" event.
- */
-
-function onError(error) {
-  if (error.syscall !== "listen") {
-    throw error;
-  }
-
-  var bind = typeof port === "string" ? "Pipe " + port : "Port " + port;
-
-  // handle specific listen errors with friendly messages
-  switch (error.code) {
-    case "EACCES":
-      console.error(bind + " requires elevated privileges");
-      process.exit(1);
-      break;
-    case "EADDRINUSE":
-      console.error(bind + " is already in use");
-      process.exit(1);
-      break;
-    default:
-      throw error;
-  }
-}
-
-/**
- * Event listener for HTTP server "listening" event.
- */
-
-function onListening() {
-  var addr = server.address();
-  var bind = typeof addr === "string" ? "pipe " + addr : "port " + addr.port;
-  debug("Listening on " + bind);
-}
+  console.log("应用实例，访问地址为 http://%s:%s", host, port);
+});
