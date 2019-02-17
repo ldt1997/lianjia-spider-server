@@ -220,6 +220,154 @@ router.post("/house/searchDonutData", urlencodedParser, function(req, res) {
   }
 });
 
+/**获取柱状图数据**/
+router.post("/house/searchBarChartData", urlencodedParser, function(req, res) {
+  console.log("获取价格区间数据", req.body.position);
+  //请求成功
+  if (req.body && req.body.position) {
+    const colName = req.body.position;
+    const temArr = [];
+    // 连接数据库
+    MongoClient.connect(url, function(err, db) {
+      if (err) throw err;
+      var dbo = db.db("lianjiaSpider"); //数据库名
+      // <=100w
+      dbo
+        .collection(colName)
+        .aggregate([
+          {
+            $match: {
+              totalPrice: { $ne: NaN, $lte: 100 }
+            }
+          },
+          { $group: { _id: null, count: { $sum: 1 } } }
+        ])
+        .toArray(function(err, result) {
+          if (err) throw err;
+          temArr.push(result[0] ? result[0] : { count: 0 });
+          ep.emit("getBarData1", result);
+        });
+      // 100w-150w
+      dbo
+        .collection(colName)
+        .aggregate([
+          {
+            $match: {
+              totalPrice: { $gt: 100, $lte: 150 }
+            }
+          },
+          { $group: { _id: null, count: { $sum: 1 } } }
+        ])
+        .toArray(function(err, result) {
+          if (err) throw err;
+          temArr.push(result[0] ? result[0] : { count: 0 });
+          ep.emit("getBarData2", result);
+        });
+      // 150-200w
+      dbo
+        .collection(colName)
+        .aggregate([
+          {
+            $match: {
+              totalPrice: { $gt: 150, $lte: 200 }
+            }
+          },
+          { $group: { _id: null, count: { $sum: 1 } } }
+        ])
+        .toArray(function(err, result) {
+          if (err) throw err;
+          temArr.push(result[0] ? result[0] : { count: 0 });
+          ep.emit("getBarData3", result);
+        });
+      // 200-250w
+      dbo
+        .collection(colName)
+        .aggregate([
+          {
+            $match: {
+              totalPrice: { $gt: 200, $lte: 250 }
+            }
+          },
+          { $group: { _id: null, count: { $sum: 1 } } }
+        ])
+        .toArray(function(err, result) {
+          if (err) throw err;
+          temArr.push(result[0] ? result[0] : { count: 0 });
+          ep.emit("getBarData4", result);
+        });
+      // 250-300w
+      dbo
+        .collection(colName)
+        .aggregate([
+          {
+            $match: {
+              totalPrice: { $gt: 250, $lte: 300 }
+            }
+          },
+          { $group: { _id: null, count: { $sum: 1 } } }
+        ])
+        .toArray(function(err, result) {
+          if (err) throw err;
+          temArr.push(result[0] ? result[0] : { count: 0 });
+          ep.emit("getBarData5", result);
+        });
+      // >=300w
+      dbo
+        .collection(colName)
+        .aggregate([
+          {
+            $match: {
+              totalPrice: { $ne: NaN, $gte: 300 }
+            }
+          },
+          { $group: { _id: null, count: { $sum: 1 } } }
+        ])
+        .toArray(function(err, result) {
+          if (err) throw err;
+          temArr.push(result[0] ? result[0] : { count: 0 });
+          ep.emit("getBarData6", result);
+        });
+    });
+
+    ep.all(
+      "getBarData1",
+      "getBarData2",
+      "getBarData3",
+      "getBarData4",
+      "getBarData5",
+      "getBarData6",
+      function(data1, data2, data3, data4, data5, data6) {
+        const tags = [
+          "100万以下",
+          "100万-150万",
+          "150万-200万",
+          "200万-250万",
+          "250万-3000万",
+          "300万以上"
+        ];
+        for (let i = 0; i < temArr.length; i++) {
+          temArr[i].item = tags[i];
+        }
+        res.send({
+          data: {
+            filterData: temArr[0] ? temArr : null //房源数量(int)
+          },
+          errorCode: "0", //0表示成功
+          errorMsg: ""
+        });
+      }
+    );
+  }
+  //请求失败
+  else {
+    res.send({
+      data: {},
+      errorCode: "1", //0表示成功
+      errorMsg: "请求失败"
+    });
+  }
+});
+
 /**获取排名数据（成交总价）**/
 router.post("/house/searchRankData", urlencodedParser, function(req, res) {
   console.log("获取排名数据", req.body.position);
