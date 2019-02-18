@@ -175,7 +175,7 @@ router.post("/house/searchDonutData", urlencodedParser, function(req, res) {
               {
                 $match: {
                   name: { $ne: NaN },
-                  layout: { $ne: NaN, $ne: "车位" }
+                  layout: { $regex: /\d室\d厅/ }
                 }
               },
               { $group: { _id: "$layout", count: { $sum: 1 } } }
