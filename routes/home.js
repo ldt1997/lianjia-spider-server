@@ -26,6 +26,7 @@ const colNameArr = [
 // 统计不同种类标签的数量
 function Classify(data) {
   var resArr = [];
+  if (!data) return false;
   var nameContainer = {}; // 针对键name进行归类的容器
   data.forEach(i => {
     i.forEach(item => {
@@ -344,7 +345,8 @@ router.post("/home/searchDonutData", urlencodedParser, function(req, res) {
       if (req.body.type !== 2 && req.body.type !== 3 && req.body.type !== 4) {
         resArr = data.slice();
       } else {
-        resArr = Classify(data);
+        console.log(data);
+        // resArr = Classify(data);
       }
       res.send({
         data: {
@@ -394,8 +396,10 @@ router.post("/home/searchTreemapData", urlencodedParser, function(req, res) {
     ep.after("getTreemapData", colNameArr.length, function(data) {
       res.send({
         data: {
-          name: "root",
-          children: data
+          filterData: {
+            name: "root",
+            children: data
+          }
         },
         errorCode: "0", //0表示成功
         errorMsg: ""
@@ -513,17 +517,17 @@ router.post("/home/searchStackedData", urlencodedParser, function(req, res) {
           .toArray(function(err, result) {
             if (err) throw err;
             temObj.higherThan300w = result[0] ? result[0].count : 0;
-            ep.emit("getTreemapData", temObj);
+            ep.emit("getStackedData", temObj);
           });
       }
       db.close();
     });
-    ep.after("getTreemapData", colNameArr.length, function(data) {
+    ep.after("getStackedData", colNameArr.length, function(data) {
       res.send({
         data: {
           filterData: data.map(item => {
             var obj = {
-              state: item.state,
+              State: item.state,
               "<100万": item.lowwerThan100w,
               "100-150万": item.between100_150w,
               "150-200万": item.between150_200w,

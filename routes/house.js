@@ -12,6 +12,44 @@ var urlencodedParser = bodyParser.urlencoded({ extended: false });
 /****爬虫服务器后台接口*****/
 
 /****house页面操作*****/
+/**获取区块数据**/
+router.post("/house/getPosition", urlencodedParser, function(req, res) {
+  console.log("获取区块数据");
+  //请求成功
+  if (req.body) {
+    const colName = "position";
+    // 连接数据库
+    MongoClient.connect(url, function(err, db) {
+      if (err) throw err;
+      var dbo = db.db("lianjiaSpider"); //数据库名
+      dbo
+        .collection(colName)
+        .find()
+        .toArray(function(err, result) {
+          if (err) throw err;
+          ep.emit("getPositionData", result);
+        });
+    });
+    ep.all("getPositionData", function(data1) {
+      res.send({
+        data: {
+          list: data1
+        },
+        errorCode: "0", //0表示成功
+        errorMsg: ""
+      });
+    });
+  }
+  //请求失败
+  else {
+    res.send({
+      data: {},
+      errorCode: "1", //0表示成功
+      errorMsg: "请求失败"
+    });
+  }
+});
+
 /**获取概览数据**/
 router.post("/house/searchOverviewData", urlencodedParser, function(req, res) {
   console.log("获取概览数据", req.body.position);
@@ -146,7 +184,7 @@ router.post("/house/searchTableData", urlencodedParser, function(req, res) {
 
 /**获取饼图数据**/
 router.post("/house/searchDonutData", urlencodedParser, function(req, res) {
-  console.log("获取饼图数据", req.body.position);
+  console.log("获取饼图数据", req.body.position, req.body.type);
   //请求成功
   if (req.body && req.body.position && req.body.type) {
     const colName = req.body.position;
@@ -201,9 +239,15 @@ router.post("/house/searchDonutData", urlencodedParser, function(req, res) {
       }
     });
     ep.all("getDonutData", function(data1) {
+      const temArr = data1.map(i => {
+        const temObj = {};
+        temObj.item = i._id;
+        temObj.count = i.count;
+        return temObj;
+      });
       res.send({
         data: {
-          filterData: data1[0] ? data1 : null
+          filterData: temArr[0] ? temArr : null
         },
         errorCode: "0", //0表示成功
         errorMsg: ""
