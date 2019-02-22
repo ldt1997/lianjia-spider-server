@@ -310,26 +310,118 @@ router.post("/home/searchDonutData", urlencodedParser, function(req, res) {
           }
           db.close();
           break;
-        //4按面积 ********先不写因为爬虫那边存的不是float型*******
+        //4按面积
         case 4:
           for (let i in colNameArr) {
-            const temObj = {};
-            temObj.item = colNameArr[i];
+            const temArr = [];
+            // <=40
             dbo
               .collection(colNameArr[i])
               .aggregate([
                 {
                   $match: {
-                    name: { $ne: NaN },
-                    layout: { $regex: /\d室\d厅/ }
+                    size: { $ne: NaN, $lte: 40 }
                   }
                 },
-                { $group: { _id: "$layout", count: { $sum: 1 } } }
+                { $group: { _id: null, count: { $sum: 1 } } }
               ])
               .toArray(function(err, result) {
                 if (err) throw err;
-                temObj.count = result[0].count ? result : 0;
-                ep.emit("getDonutData", result);
+                if (result[0]) result[0]._id = "40平以下";
+                temArr.push(
+                  result[0] ? result[0] : { _id: "40平以下", count: 0 }
+                );
+              });
+            //40-60
+            dbo
+              .collection(colNameArr[i])
+              .aggregate([
+                {
+                  $match: {
+                    size: { $gt: 40, $lte: 60 }
+                  }
+                },
+                { $group: { _id: null, count: { $sum: 1 } } }
+              ])
+              .toArray(function(err, result) {
+                if (err) throw err;
+                if (result[0]) result[0]._id = "40平-60平";
+                temArr.push(
+                  result[0] ? result[0] : { _id: "40平-60平", count: 0 }
+                );
+              });
+            // 60-80
+            dbo
+              .collection(colNameArr[i])
+              .aggregate([
+                {
+                  $match: {
+                    size: { $gt: 60, $lte: 80 }
+                  }
+                },
+                { $group: { _id: null, count: { $sum: 1 } } }
+              ])
+              .toArray(function(err, result) {
+                if (err) throw err;
+                if (result[0]) result[0]._id = "60平-80平";
+                temArr.push(
+                  result[0] ? result[0] : { _id: "60平-80平", count: 0 }
+                );
+              });
+            //80-100
+            dbo
+              .collection(colNameArr[i])
+              .aggregate([
+                {
+                  $match: {
+                    size: { $gt: 80, $lte: 100 }
+                  }
+                },
+                { $group: { _id: null, count: { $sum: 1 } } }
+              ])
+              .toArray(function(err, result) {
+                if (err) throw err;
+                if (result[0]) result[0]._id = "80平-100平";
+                temArr.push(
+                  result[0] ? result[0] : { _id: "80平-100平", count: 0 }
+                );
+              });
+            //100-120
+            dbo
+              .collection(colNameArr[i])
+              .aggregate([
+                {
+                  $match: {
+                    size: { $gt: 100, $lte: 120 }
+                  }
+                },
+                { $group: { _id: null, count: { $sum: 1 } } }
+              ])
+              .toArray(function(err, result) {
+                if (err) throw err;
+                if (result[0]) result[0]._id = "100平-120平";
+                temArr.push(
+                  result[0] ? result[0] : { _id: "100平-120平", count: 0 }
+                );
+              });
+            //>=120
+            dbo
+              .collection(colNameArr[i])
+              .aggregate([
+                {
+                  $match: {
+                    size: { $ne: NaN, $gte: 120 }
+                  }
+                },
+                { $group: { _id: null, count: { $sum: 1 } } }
+              ])
+              .toArray(function(err, result) {
+                if (err) throw err;
+                if (result[0]) result[0]._id = "大于120平";
+                temArr.push(
+                  result[0] ? result[0] : { _id: "大于120平", count: 0 }
+                );
+                ep.emit("getDonutData", temArr);
               });
           }
           db.close();
@@ -345,8 +437,7 @@ router.post("/home/searchDonutData", urlencodedParser, function(req, res) {
       if (req.body.type !== 2 && req.body.type !== 3 && req.body.type !== 4) {
         resArr = data.slice();
       } else {
-        console.log(data);
-        // resArr = Classify(data);
+        resArr = Classify(data);
       }
       res.send({
         data: {
