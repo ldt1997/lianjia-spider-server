@@ -202,7 +202,20 @@ router.post("/house/searchDonutData", urlencodedParser, function(req, res) {
             ])
             .toArray(function(err, result) {
               if (err) throw err;
-              ep.emit("getDonutData", result);
+              // ep.emit("getDonutData", result);
+              const temArr = result.map(i => {
+                const temObj = {};
+                temObj.item = i._id;
+                temObj.count = i.count;
+                return temObj;
+              });
+              res.send({
+                data: {
+                  filterData: temArr[0] ? temArr : null
+                },
+                errorCode: "0", //0表示成功
+                errorMsg: ""
+              });
               db.close();
             });
           break;
@@ -220,7 +233,20 @@ router.post("/house/searchDonutData", urlencodedParser, function(req, res) {
             ])
             .toArray(function(err, result) {
               if (err) throw err;
-              ep.emit("getDonutData", result);
+              // ep.emit("getDonutData", result);
+              const temArr = result.map(i => {
+                const temObj = {};
+                temObj.item = i._id;
+                temObj.count = i.count;
+                return temObj;
+              });
+              res.send({
+                data: {
+                  filterData: temArr[0] ? temArr : null
+                },
+                errorCode: "0", //0表示成功
+                errorMsg: ""
+              });
               db.close();
             });
           break;
@@ -233,26 +259,39 @@ router.post("/house/searchDonutData", urlencodedParser, function(req, res) {
             ])
             .toArray(function(err, result) {
               if (err) throw err;
-              ep.emit("getDonutData", result);
+              // ep.emit("getDonutData", result);
+              const temArr = result.map(i => {
+                const temObj = {};
+                temObj.item = i._id;
+                temObj.count = i.count;
+                return temObj;
+              });
+              res.send({
+                data: {
+                  filterData: temArr[0] ? temArr : null
+                },
+                errorCode: "0", //0表示成功
+                errorMsg: ""
+              });
               db.close();
             });
       }
     });
-    ep.all("getDonutData", function(data1) {
-      const temArr = data1.map(i => {
-        const temObj = {};
-        temObj.item = i._id;
-        temObj.count = i.count;
-        return temObj;
-      });
-      res.send({
-        data: {
-          filterData: temArr[0] ? temArr : null
-        },
-        errorCode: "0", //0表示成功
-        errorMsg: ""
-      });
-    });
+    // ep.all("getDonutData", function(data1) {
+    //   const temArr = data1.map(i => {
+    //     const temObj = {};
+    //     temObj.item = i._id;
+    //     temObj.count = i.count;
+    //     return temObj;
+    //   });
+    //   res.send({
+    //     data: {
+    //       filterData: temArr[0] ? temArr : null
+    //     },
+    //     errorCode: "0", //0表示成功
+    //     errorMsg: ""
+    //   });
+    // });
   }
   //请求失败
   else {
