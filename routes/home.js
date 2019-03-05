@@ -4,8 +4,8 @@ var bodyParser = require("body-parser");
 var eventproxy = require("eventproxy"); //流程控制
 var ep = eventproxy();
 var MongoClient = require("mongodb").MongoClient;
-// var url = "mongodb://localhost:27017/";
-var url = "mongodb://127.0.0.1:27017/"; // 上传到阿里云改为127.0.0.1(不知道不改行不行)
+var url = "mongodb://localhost:27017/";
+// var url = "mongodb://127.0.0.1:27017/"; // 上传到阿里云改为127.0.0.1(不知道不改行不行)
 
 // 创建 application/x-www-form-urlencoded 编码解析
 var urlencodedParser = bodyParser.urlencoded({ extended: false });

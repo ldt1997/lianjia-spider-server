@@ -4,8 +4,8 @@ var bodyParser = require("body-parser");
 var eventproxy = require("eventproxy"); //流程控制
 var ep = eventproxy();
 var MongoClient = require("mongodb").MongoClient;
-// var url = "mongodb://localhost:27017/";
-var url = "mongodb://127.0.0.1:27017/"; // 上传到阿里云改为127.0.0.1(不知道不改行不行)
+var url = "mongodb://localhost:27017/";
+// var url = "mongodb://127.0.0.1:27017/"; // 上传到阿里云改为127.0.0.1(不知道不改行不行)
 
 // 创建 application/x-www-form-urlencoded 编码解析
 var urlencodedParser = bodyParser.urlencoded({ extended: false });
@@ -478,6 +478,101 @@ router.post("/house/searchRankData", urlencodedParser, function(req, res) {
       res.send({
         data: {
           filterData: data1[0] ? data1 : null //rank
+        },
+        errorCode: "0", //0表示成功
+        errorMsg: ""
+      });
+    });
+  }
+  //请求失败
+  else {
+    res.send({
+      data: {},
+      errorCode: "1", //0表示成功
+      errorMsg: "请求失败"
+    });
+  }
+});
+
+/**获取房价（总价）随面积变化趋势面积图数据**/
+router.post("/house/searchAreaChartData", urlencodedParser, function(req, res) {
+  console.log("获取房价（总价）随面积变化趋势数据", req.body.position);
+  //请求成功
+  if (req.body && req.body.position) {
+    const colName = req.body.position; // 表名
+    // 连接数据库
+    MongoClient.connect(url, function(err, db) {
+      if (err) throw err;
+      var dbo = db.db("lianjiaSpider"); //数据库名
+      dbo
+        .collection(colName)
+        .aggregate([
+          {
+            $match: {
+              totalPrice: { $ne: NaN },
+              size: { $ne: NaN }
+            }
+          },
+          { $project: { item: "$size", count: "$totalPrice" } }
+        ])
+        .toArray(function(err, result) {
+          if (err) throw err;
+          ep.emit("getAreaChartData", result);
+        });
+    });
+    ep.all("getAreaChartData", function(data1) {
+      res.send({
+        data: {
+          filterData: data1[0] ? data1 : null
+        },
+        errorCode: "0", //0表示成功
+        errorMsg: ""
+      });
+    });
+  }
+  //请求失败
+  else {
+    res.send({
+      data: {},
+      errorCode: "1", //0表示成功
+      errorMsg: "请求失败"
+    });
+  }
+});
+
+/**获取成交周期随面积变化趋势曲线折线图数据**/
+router.post("/house/searchCurvedLineChartData", urlencodedParser, function(
+  req,
+  res
+) {
+  console.log("获取成交周期随面积变化趋势曲线折线图数据", req.body.position);
+  //请求成功
+  if (req.body && req.body.position) {
+    const colName = req.body.position; // 表名
+    // 连接数据库
+    MongoClient.connect(url, function(err, db) {
+      if (err) throw err;
+      var dbo = db.db("lianjiaSpider"); //数据库名
+      dbo
+        .collection(colName)
+        .aggregate([
+          {
+            $match: {
+              dealPeriod: { $ne: NaN },
+              size: { $ne: NaN }
+            }
+          },
+          { $project: { item: "$size", count: "$dealPeriod" } }
+        ])
+        .toArray(function(err, result) {
+          if (err) throw err;
+          ep.emit("getCurvedLineChartData", result);
+        });
+    });
+    ep.all("getCurvedLineChartData", function(data1) {
+      res.send({
+        data: {
+          filterData: data1[0] ? data1 : null
         },
         errorCode: "0", //0表示成功
         errorMsg: ""

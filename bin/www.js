@@ -13,7 +13,8 @@ app.use("/", houseRouter);
 app.use("/", homeRouter);
 
 // 上传到阿里云改为0.0.0.0
-var server = app.listen(8090, "0.0.0.0", function() {
+// var server = app.listen(8090, "0.0.0.0", function() {
+var server = app.listen(8090, function() {
   var host = server.address().address;
   var port = server.address().port;
 
