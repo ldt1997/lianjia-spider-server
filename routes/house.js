@@ -494,8 +494,8 @@ router.post("/house/searchRankData", urlencodedParser, function(req, res) {
   }
 });
 
-/**获取房价（总价）随面积变化趋势面积图数据**/
-router.post("/house/searchAreaChartData", urlencodedParser, function(req, res) {
+/**获取房价（总价）随面积变化趋势数据**/
+router.post("/house/searchCurvedLineChartData", urlencodedParser, function(req, res) {
   console.log("获取房价（总价）随面积变化趋势数据", req.body.position);
   //请求成功
   if (req.body && req.body.position) {
@@ -510,17 +510,19 @@ router.post("/house/searchAreaChartData", urlencodedParser, function(req, res) {
           {
             $match: {
               totalPrice: { $ne: NaN },
+              listedPrice: { $ne: NaN },
               size: { $ne: NaN }
             }
           },
-          { $project: { item: "$size", count: "$totalPrice" } }
+          { $project: { item: "$size", listedPrice:1,totalPrice:1} }
         ])
+        .limit(100)
         .toArray(function(err, result) {
           if (err) throw err;
-          ep.emit("getAreaChartData", result);
+          ep.emit("getCurvedLineChartData", result);
         });
     });
-    ep.all("getAreaChartData", function(data1) {
+    ep.all("getCurvedLineChartData", function(data1) {
       res.send({
         data: {
           filterData: data1[0] ? data1 : null
@@ -541,11 +543,11 @@ router.post("/house/searchAreaChartData", urlencodedParser, function(req, res) {
 });
 
 /**获取成交周期随面积变化趋势曲线折线图数据**/
-router.post("/house/searchCurvedLineChartData", urlencodedParser, function(
+router.post("/house/searchAreaChartData", urlencodedParser, function(
   req,
   res
 ) {
-  console.log("获取成交周期随面积变化趋势曲线折线图数据", req.body.position);
+  console.log("获取成交周期随面积变化趋势数据", req.body.position);
   //请求成功
   if (req.body && req.body.position) {
     const colName = req.body.position; // 表名
@@ -564,12 +566,13 @@ router.post("/house/searchCurvedLineChartData", urlencodedParser, function(
           },
           { $project: { item: "$size", count: "$dealPeriod" } }
         ])
+        .limit(100)
         .toArray(function(err, result) {
           if (err) throw err;
-          ep.emit("getCurvedLineChartData", result);
+          ep.emit("getAreaChartData", result);
         });
     });
-    ep.all("getCurvedLineChartData", function(data1) {
+    ep.all("getAreaChartData", function(data1) {
       res.send({
         data: {
           filterData: data1[0] ? data1 : null

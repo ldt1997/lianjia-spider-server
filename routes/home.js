@@ -688,6 +688,114 @@ router.post("/home/searchLineChartData", urlencodedParser, function(req, res) {
   }
 });
 
+/**获取房价（总价）随面积变化趋势数据 **/
+router.post("/home/searchCurvedLineChartData", urlencodedParser, function(req, res) {
+  console.log("获取房价（总价）随面积变化趋势数据");
+  //请求成功
+  if (req.body) {
+    // 连接数据库
+    MongoClient.connect(url, function(err, db) {
+      if (err) throw err;
+      var dbo = db.db("lianjiaSpider"); //数据库名
+      for (let i in colNameArr) {
+        dbo
+          .collection(colNameArr[i])
+          .aggregate([
+            {
+              $match: {
+                totalPrice: { $ne: NaN },
+                size: { $ne: NaN }
+              }
+            },
+            { $project: { item: "$size", count: "$totalPrice" } }
+          ])
+          .toArray(function(err, result) {
+            if (err) throw err;
+            ep.emit("getCurvedLineChartData", result);
+          });
+      }
+      // db.close();
+    });
+    ep.after("getCurvedLineChartData", colNameArr.length, function(data) {
+      const temArr=[];
+            for(let i=0;i<data.length;i++){
+              for(let j=0;j<data[i].length;j++){
+                temArr.push(data[i][j]);
+              }
+            }
+      res.send({
+        data: {
+          filterData: temArr
+        },
+        errorCode: "0", //0表示成功
+        errorMsg: ""
+      });
+    });
+  }
+  //请求失败
+  else {
+    res.send({
+      data: {},
+      errorCode: "1", //0表示成功
+      errorMsg: "请求失败"
+    });
+  }
+});
+
+/**获取成交周期随面积变化趋势数据 **/
+router.post("/home/searchAreaChartData", urlencodedParser, function(req, res) {
+  console.log("获取成交周期随面积变化趋势数据");
+  //请求成功
+  if (req.body) {
+    // 连接数据库
+    MongoClient.connect(url, function(err, db) {
+      if (err) throw err;
+      var dbo = db.db("lianjiaSpider"); //数据库名
+      for (let i in colNameArr) {
+        dbo
+          .collection(colNameArr[i])
+          .aggregate([
+            {
+              $match: {
+                totalPrice: { $ne: NaN },
+                size: { $ne: NaN }
+              }
+            },
+            { $project: { item: "$size", count: "$dealPeriod" } }
+          ])
+          .toArray(function(err, result) {
+            if (err) throw err;
+            ep.emit("getAreaChartData", result);
+          });
+      }
+      // db.close();
+    });
+    ep.after("getAreaChartData", colNameArr.length, function(data) {
+      const temArr=[];
+            for(let i=0;i<data.length;i++){
+              for(let j=0;j<data[i].length;j++){
+                temArr.push(data[i][j]);
+              }
+            }
+      res.send({
+        data: {
+          filterData: temArr
+        },
+        errorCode: "0", //0表示成功
+        errorMsg: ""
+      });
+    });
+  }
+  //请求失败
+  else {
+    res.send({
+      data: {},
+      errorCode: "1", //0表示成功
+      errorMsg: "请求失败"
+    });
+  }
+});
+
 /****测试用 home页面获取饼图数据的分解接口 ****/
 /**获取饼图数据-房源数量**/
 router.post("/home/searchDonutData1", urlencodedParser, function(req, res) {
