@@ -23,6 +23,8 @@ const colNameArr = [
   "yuexiu",
   "zengcheng"
 ];
+// 各区块表名
+const colName="houses";//表名
 
 // 统计不同种类标签的数量
 function Classify(data) {
@@ -58,13 +60,9 @@ router.post("/home/searchOverviewData", urlencodedParser, function(req, res) {
     MongoClient.connect(url, function(err, db) {
       if (err) throw err;
       var dbo = db.db("lianjiaSpider"); //数据库名
-
-      // 对于要查询的每个集合
-      for (let i in colNameArr) {
         const temObj = {};
-        temObj.position = colNameArr[i];
         dbo
-          .collection(colNameArr[i])
+          .collection(colName)
           .aggregate([{ $group: { _id: null, count: { $sum: 1 } } }])
           .toArray(function(err, result) {
             if (err) throw err;
@@ -73,65 +71,51 @@ router.post("/home/searchOverviewData", urlencodedParser, function(req, res) {
           });
         ep.after("getHouseNum", 1, function(data) {
           dbo
-            .collection(colNameArr[i])
+            .collection(colName)
             .aggregate([
               { $match: { unitPrice: { $ne: NaN } } },
-              { $group: { _id: null, count: { $sum: "$unitPrice" } } }
+              { $group: { _id: null, count: { $avg: "$unitPrice" } } }
             ])
             .toArray(function(err, result) {
               if (err) throw err;
-              temObj.unitPrice = result[0].count ? result[0].count : 0;
+              temObj.avgUnitPrice = result[0].count ? result[0].count : 0;
               ep.emit("getUnitPrice", temObj);
             });
         });
         ep.after("getUnitPrice", 1, function(data) {
           dbo
-            .collection(colNameArr[i])
+            .collection(colName)
             .aggregate([
               { $match: { listedPrice: { $ne: NaN } } },
-              { $group: { _id: null, count: { $sum: "$listedPrice" } } }
+              { $group: { _id: null, count: { $avg: "$listedPrice" } } }
             ])
             .toArray(function(err, result) {
               if (err) throw err;
-              temObj.listedPrice = result[0].count ? result[0].count : 0;
+              temObj.avgListedPrice = result[0].count ? result[0].count : 0;
               ep.emit("getListedPrice", temObj);
             });
         });
         ep.after("getListedPrice", 1, function(data) {
           dbo
-            .collection(colNameArr[i])
+            .collection(colName)
             .aggregate([
               { $match: { totalPrice: { $ne: NaN } } },
-              { $group: { _id: null, count: { $sum: "$totalPrice" } } }
+              { $group: { _id: null, count: { $avg: "$totalPrice" } } }
             ])
             .toArray(function(err, result) {
               if (err) throw err;
-              temObj.totalPrice = result[0].count ? result[0].count : 0;
+              temObj.avgTotalPrice = result[0].count ? result[0].count : 0;
               ep.emit("getTotalPrice", temObj);
             });
         });
-      }
     });
-    ep.after("getTotalPrice", colNameArr.length, function(data) {
-      let houseNum = 0,
-        avgUnitPrice = 0,
-        avgListedPrice = 0,
-        avgTotalPrice = 0;
-      for (let i = 0; i < data.length; i++) {
-        houseNum += data[i].houseNum;
-        avgUnitPrice += data[i].unitPrice;
-        avgListedPrice += data[i].listedPrice;
-        avgTotalPrice += data[i].totalPrice;
-      }
-      avgUnitPrice /= houseNum;
-      avgListedPrice /= houseNum;
-      avgTotalPrice /= houseNum;
+    ep.after("getTotalPrice", 1, function(data) {
       res.send({
         data: {
-          houseNum: houseNum, //房源数量(int)
-          avgUnitPrice: avgUnitPrice, //平均单价(float)
-          avgListedPrice: avgListedPrice, //平均挂牌总价(float)
-          avgTotalPrice: avgTotalPrice //平均成交总价(float)
+          houseNum: data[0].houseNum, //房源数量(int)
+          avgUnitPrice:data[0]. avgUnitPrice, //平均单价(float)
+          avgListedPrice: data[0].avgListedPrice, //平均挂牌总价(float)
+          avgTotalPrice: data[0].avgTotalPrice //平均成交总价(float)
         },
         errorCode: "0", //0表示成功
         errorMsg: ""
@@ -468,29 +452,25 @@ router.post("/home/searchTreemapData", urlencodedParser, function(req, res) {
     MongoClient.connect(url, function(err, db) {
       if (err) throw err;
       var dbo = db.db("lianjiaSpider"); //数据库名
-      for (let i in colNameArr) {
-        const temObj = {};
-        temObj.name = colNameArr[i];
         dbo
-          .collection(colNameArr[i])
+          .collection(colName)
           .aggregate([
             { $match: { unitPrice: { $ne: NaN } } },
-            { $group: { _id: null, count: { $avg: "$unitPrice" } } }
+            { $group: { _id: "$position", count: { $avg: "$unitPrice" } } },
+            {$project:{name:"$_id",value:"$count",_id:0}}
           ])
           .toArray(function(err, result) {
             if (err) throw err;
-            temObj.value = result[0].count ? result[0].count : 0;
-            ep.emit("getTreemapData", temObj);
+            ep.emit("getTreemapData", result);
           });
-      }
       db.close();
     });
-    ep.after("getTreemapData", colNameArr.length, function(data) {
+    ep.after("getTreemapData", 1, function(data) {
       res.send({
         data: {
           filterData: {
             name: "root",
-            children: data
+            children: data[0]?data[0]:[]
           }
         },
         errorCode: "0", //0表示成功
@@ -522,11 +502,12 @@ router.post("/home/searchStackedData", urlencodedParser, function(req, res) {
         temObj.state = colNameArr[i];
         // <=100w
         dbo
-          .collection(colNameArr[i])
+          .collection(colName)
           .aggregate([
             {
               $match: {
-                totalPrice: { $ne: NaN, $lte: 100 }
+                totalPrice: { $ne: NaN, $lte: 100 },
+                position:colNameArr[i]
               }
             },
             { $group: { _id: null, count: { $sum: 1 } } }
@@ -537,11 +518,12 @@ router.post("/home/searchStackedData", urlencodedParser, function(req, res) {
           });
         //100-150w
         dbo
-          .collection(colNameArr[i])
+          .collection(colName)
           .aggregate([
             {
               $match: {
-                totalPrice: { $gt: 100, $lte: 150 }
+                totalPrice: { $gt: 100, $lte: 150 },
+                position:colNameArr[i]
               }
             },
             { $group: { _id: null, count: { $sum: 1 } } }
@@ -552,11 +534,12 @@ router.post("/home/searchStackedData", urlencodedParser, function(req, res) {
           });
         // 150-200w
         dbo
-          .collection(colNameArr[i])
+          .collection(colName)
           .aggregate([
             {
               $match: {
-                totalPrice: { $gt: 150, $lte: 200 }
+                totalPrice: { $gt: 150, $lte: 200 },
+                position:colNameArr[i]
               }
             },
             { $group: { _id: null, count: { $sum: 1 } } }
@@ -567,11 +550,12 @@ router.post("/home/searchStackedData", urlencodedParser, function(req, res) {
           });
         //200-250w
         dbo
-          .collection(colNameArr[i])
+          .collection(colName)
           .aggregate([
             {
               $match: {
-                totalPrice: { $gt: 200, $lte: 250 }
+                totalPrice: { $gt: 200, $lte: 250 },
+                position:colNameArr[i]
               }
             },
             { $group: { _id: null, count: { $sum: 1 } } }
@@ -582,11 +566,12 @@ router.post("/home/searchStackedData", urlencodedParser, function(req, res) {
           });
         //250-300w
         dbo
-          .collection(colNameArr[i])
+          .collection(colName)
           .aggregate([
             {
               $match: {
-                totalPrice: { $gt: 250, $lte: 300 }
+                totalPrice: { $gt: 250, $lte: 300 },
+                position:colNameArr[i]
               }
             },
             { $group: { _id: null, count: { $sum: 1 } } }
@@ -597,11 +582,12 @@ router.post("/home/searchStackedData", urlencodedParser, function(req, res) {
           });
         //>=300w
         dbo
-          .collection(colNameArr[i])
+          .collection(colName)
           .aggregate([
             {
               $match: {
-                totalPrice: { $ne: NaN, $gte: 300 }
+                totalPrice: { $ne: NaN, $gte: 300 },
+                position:colNameArr[i]
               }
             },
             { $group: { _id: null, count: { $sum: 1 } } }
@@ -654,24 +640,23 @@ router.post("/home/searchLineChartData", urlencodedParser, function(req, res) {
     MongoClient.connect(url, function(err, db) {
       if (err) throw err;
       var dbo = db.db("lianjiaSpider"); //数据库名
-      for (let i in colNameArr) {
         dbo
-          .collection(colNameArr[i])
+          .collection(colName)
           .aggregate([
             { $project: { new_time_stamp: { $substr: ["$dealDate", 0, 7] } } },
-            { $group: { _id: "$new_time_stamp", count: { $sum: 1 } } }
+            { $group: { _id: "$new_time_stamp", count: { $sum: 1 } } },
+            {$project:{item:"$_id",count:1,_id:0}}
           ])
           .toArray(function(err, result) {
             if (err) throw err;
             ep.emit("getLineChartData", result);
           });
-      }
       db.close();
     });
-    ep.after("getLineChartData", colNameArr.length, function(data) {
+    ep.after("getLineChartData", 1, function(data) {
       res.send({
         data: {
-          filterData: Classify(data)
+          filterData: data[0]?data[0]:[]
         },
         errorCode: "0", //0表示成功
         errorMsg: ""
@@ -697,9 +682,8 @@ router.post("/home/searchCurvedLineChartData", urlencodedParser, function(req, r
     MongoClient.connect(url, function(err, db) {
       if (err) throw err;
       var dbo = db.db("lianjiaSpider"); //数据库名
-      for (let i in colNameArr) {
         dbo
-          .collection(colNameArr[i])
+          .collection(colName)
           .aggregate([
             {
               $match: {
@@ -709,23 +693,17 @@ router.post("/home/searchCurvedLineChartData", urlencodedParser, function(req, r
             },
             { $project: { item: "$size", count: "$totalPrice" } }
           ])
+          .limit(1000)
           .toArray(function(err, result) {
             if (err) throw err;
             ep.emit("getCurvedLineChartData", result);
           });
-      }
       // db.close();
     });
-    ep.after("getCurvedLineChartData", colNameArr.length, function(data) {
-      const temArr=[];
-            for(let i=0;i<data.length;i++){
-              for(let j=0;j<data[i].length;j++){
-                temArr.push(data[i][j]);
-              }
-            }
+    ep.after("getCurvedLineChartData", 1, function(data) {
       res.send({
         data: {
-          filterData: temArr
+          filterData: data[0]?data[0]:[]
         },
         errorCode: "0", //0表示成功
         errorMsg: ""
@@ -742,59 +720,6 @@ router.post("/home/searchCurvedLineChartData", urlencodedParser, function(req, r
   }
 });
 
-/**获取成交周期随面积变化趋势数据 **/
-router.post("/home/searchAreaChartData", urlencodedParser, function(req, res) {
-  console.log("获取成交周期随面积变化趋势数据");
-  //请求成功
-  if (req.body) {
-    // 连接数据库
-    MongoClient.connect(url, function(err, db) {
-      if (err) throw err;
-      var dbo = db.db("lianjiaSpider"); //数据库名
-      for (let i in colNameArr) {
-        dbo
-          .collection(colNameArr[i])
-          .aggregate([
-            {
-              $match: {
-                totalPrice: { $ne: NaN },
-                size: { $ne: NaN }
-              }
-            },
-            { $project: { item: "$size", count: "$dealPeriod" } }
-          ])
-          .toArray(function(err, result) {
-            if (err) throw err;
-            ep.emit("getAreaChartData", result);
-          });
-      }
-      // db.close();
-    });
-    ep.after("getAreaChartData", colNameArr.length, function(data) {
-      const temArr=[];
-            for(let i=0;i<data.length;i++){
-              for(let j=0;j<data[i].length;j++){
-                temArr.push(data[i][j]);
-              }
-            }
-      res.send({
-        data: {
-          filterData: temArr
-        },
-        errorCode: "0", //0表示成功
-        errorMsg: ""
-      });
-    });
-  }
-  //请求失败
-  else {
-    res.send({
-      data: {},
-      errorCode: "1", //0表示成功
-      errorMsg: "请求失败"
-    });
-  }
-});
 
 /****测试用 home页面获取饼图数据的分解接口 ****/
 /**获取饼图数据-房源数量**/
@@ -809,32 +734,26 @@ router.post("/home/searchDonutData1", urlencodedParser, function(req, res) {
       switch (req.body.type) {
         // 1按地区房源数量
         case 1:
-          for (let i in colNameArr) {
-            const temObj = {};
-            temObj.item = colNameArr[i];
             dbo
-              .collection(colNameArr[i])
-              .aggregate([{ $group: { _id: null, count: { $sum: 1 } } }])
+              .collection(colName)
+              .aggregate([{ 
+                $group: { _id: "$position", count: { $sum: 1 } }
+             },
+              { $project:{item:"$_id",count:1,_id:0}}])
               .toArray(function(err, result) {
                 if (err) throw err;
-                temObj.count = result[0].count ? result[0].count : 0;
-                ep.emit("getDonutData1", temObj);
+                ep.emit("getDonutData1", result);
               });
-          }
           db.close();
           break;
         default:
-          for (let i = 0; i < colNameArr.length; i++) {
             ep.emit("getDonutData1", []);
-          }
       }
     });
-    ep.after("getDonutData1", colNameArr.length, function(data) {
-      var resArr = []; //最终数据
-      resArr = data.slice();
+    ep.after("getDonutData1", 1, function(data) {
       res.send({
         data: {
-          filterData: resArr
+          filterData: data[0]?data[0]:[]
         },
         errorCode: "0", //0表示成功
         errorMsg: ""
@@ -863,9 +782,8 @@ router.post("/home/searchDonutData2", urlencodedParser, function(req, res) {
       switch (req.body.type) {
         //2按户型
         case 2:
-          for (let i in colNameArr) {
             dbo
-              .collection(colNameArr[i])
+              .collection(colName)
               .aggregate([
                 {
                   $match: {
@@ -873,31 +791,25 @@ router.post("/home/searchDonutData2", urlencodedParser, function(req, res) {
                     layout: { $regex: /\d室\d厅/ }
                   }
                 },
-                { $group: { _id: "$layout", count: { $sum: 1 } } }
+                { $group: { _id: "$layout", count: { $sum: 1 } },
+                
+               },
+               { $project:{item:"$_id",count:1,_id:0}}
               ])
               .toArray(function(err, result) {
                 if (err) throw err;
                 ep.emit("getDonutData2", result);
               });
-          }
           db.close();
           break;
         default:
-          for (let i = 0; i < colNameArr.length; i++) {
             ep.emit("getDonutData2", []);
-          }
       }
     });
-    ep.after("getDonutData2", colNameArr.length, function(data) {
-      var resArr = []; //最终数据
-      if (req.body.type !== 2 && req.body.type !== 3 && req.body.type !== 4) {
-        resArr = data.slice();
-      } else {
-        resArr = Classify(data);
-      }
+    ep.after("getDonutData2", 1, function(data) {
       res.send({
         data: {
-          filterData: resArr
+          filterData: data[0]?data[0]:[]
         },
         errorCode: "0", //0表示成功
         errorMsg: ""
@@ -930,11 +842,12 @@ router.post("/home/searchDonutData3", urlencodedParser, function(req, res) {
             const temArr = [];
             // <=100w
             dbo
-              .collection(colNameArr[i])
+              .collection(colName)
               .aggregate([
                 {
                   $match: {
-                    totalPrice: { $ne: NaN, $lte: 100 }
+                    totalPrice: { $ne: NaN, $lte: 100 },
+                    position:colNameArr[i]
                   }
                 },
                 { $group: { _id: null, count: { $sum: 1 } } }
@@ -948,11 +861,12 @@ router.post("/home/searchDonutData3", urlencodedParser, function(req, res) {
               });
             //100-150w
             dbo
-              .collection(colNameArr[i])
+              .collection(colName)
               .aggregate([
                 {
                   $match: {
-                    totalPrice: { $gt: 100, $lte: 150 }
+                    totalPrice: { $gt: 100, $lte: 150 },
+                    position:colNameArr[i]
                   }
                 },
                 { $group: { _id: null, count: { $sum: 1 } } }
@@ -966,11 +880,12 @@ router.post("/home/searchDonutData3", urlencodedParser, function(req, res) {
               });
             // 150-200w
             dbo
-              .collection(colNameArr[i])
+              .collection(colName)
               .aggregate([
                 {
                   $match: {
-                    totalPrice: { $gt: 150, $lte: 200 }
+                    totalPrice: { $gt: 150, $lte: 200 },
+                    position:colNameArr[i]
                   }
                 },
                 { $group: { _id: null, count: { $sum: 1 } } }
@@ -984,11 +899,12 @@ router.post("/home/searchDonutData3", urlencodedParser, function(req, res) {
               });
             //200-250w
             dbo
-              .collection(colNameArr[i])
+              .collection(colName)
               .aggregate([
                 {
                   $match: {
-                    totalPrice: { $gt: 200, $lte: 250 }
+                    totalPrice: { $gt: 200, $lte: 250 },
+                    position:colNameArr[i]
                   }
                 },
                 { $group: { _id: null, count: { $sum: 1 } } }
@@ -1002,11 +918,12 @@ router.post("/home/searchDonutData3", urlencodedParser, function(req, res) {
               });
             //250-300w
             dbo
-              .collection(colNameArr[i])
+              .collection(colName)
               .aggregate([
                 {
                   $match: {
-                    totalPrice: { $gt: 250, $lte: 300 }
+                    totalPrice: { $gt: 250, $lte: 300 },
+                    position:colNameArr[i]
                   }
                 },
                 { $group: { _id: null, count: { $sum: 1 } } }
@@ -1020,11 +937,12 @@ router.post("/home/searchDonutData3", urlencodedParser, function(req, res) {
               });
             //>=300w
             dbo
-              .collection(colNameArr[i])
+              .collection(colName)
               .aggregate([
                 {
                   $match: {
-                    totalPrice: { $ne: NaN, $gte: 300 }
+                    totalPrice: { $ne: NaN, $gte: 300 },
+                    position:colNameArr[i]
                   }
                 },
                 { $group: { _id: null, count: { $sum: 1 } } }
@@ -1088,14 +1006,16 @@ router.post("/home/searchDonutData4", urlencodedParser, function(req, res) {
             const temArr = [];
             // <=40
             dbo
-              .collection(colNameArr[i])
+              .collection(colName)
               .aggregate([
                 {
                   $match: {
-                    size: { $ne: NaN, $lte: 40 }
+                    size: { $ne: NaN, $lte: 40 },
+                    position:colNameArr[i]
                   }
                 },
-                { $group: { _id: null, count: { $sum: 1 } } }
+                { $group: { _id: null, count: { $sum: 1 } } },
+                
               ])
               .toArray(function(err, result) {
                 if (err) throw err;
@@ -1106,11 +1026,12 @@ router.post("/home/searchDonutData4", urlencodedParser, function(req, res) {
               });
             //40-60
             dbo
-              .collection(colNameArr[i])
+              .collection(colName)
               .aggregate([
                 {
                   $match: {
-                    size: { $gt: 40, $lte: 60 }
+                    size: { $gt: 40, $lte: 60 },
+                    position:colNameArr[i]
                   }
                 },
                 { $group: { _id: null, count: { $sum: 1 } } }
@@ -1124,11 +1045,12 @@ router.post("/home/searchDonutData4", urlencodedParser, function(req, res) {
               });
             // 60-80
             dbo
-              .collection(colNameArr[i])
+              .collection(colName)
               .aggregate([
                 {
                   $match: {
-                    size: { $gt: 60, $lte: 80 }
+                    size: { $gt: 60, $lte: 80 },
+                    position:colNameArr[i]
                   }
                 },
                 { $group: { _id: null, count: { $sum: 1 } } }
@@ -1142,11 +1064,12 @@ router.post("/home/searchDonutData4", urlencodedParser, function(req, res) {
               });
             //80-100
             dbo
-              .collection(colNameArr[i])
+              .collection(colName)
               .aggregate([
                 {
                   $match: {
-                    size: { $gt: 80, $lte: 100 }
+                    size: { $gt: 80, $lte: 100 },
+                    position:colNameArr[i]
                   }
                 },
                 { $group: { _id: null, count: { $sum: 1 } } }
@@ -1160,11 +1083,12 @@ router.post("/home/searchDonutData4", urlencodedParser, function(req, res) {
               });
             //100-120
             dbo
-              .collection(colNameArr[i])
+              .collection(colName)
               .aggregate([
                 {
                   $match: {
-                    size: { $gt: 100, $lte: 120 }
+                    size: { $gt: 100, $lte: 120 },
+                    position:colNameArr[i]
                   }
                 },
                 { $group: { _id: null, count: { $sum: 1 } } }
@@ -1178,11 +1102,12 @@ router.post("/home/searchDonutData4", urlencodedParser, function(req, res) {
               });
             //>=120
             dbo
-              .collection(colNameArr[i])
+              .collection(colName)
               .aggregate([
                 {
                   $match: {
-                    size: { $ne: NaN, $gte: 120 }
+                    size: { $ne: NaN, $gte: 120 },
+                    position:colNameArr[i]
                   }
                 },
                 { $group: { _id: null, count: { $sum: 1 } } }
