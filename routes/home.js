@@ -60,16 +60,13 @@ router.post("/home/searchOverviewData", urlencodedParser, function(req, res) {
     MongoClient.connect(url, function(err, db) {
       if (err) throw err;
       var dbo = db.db("lianjiaSpider"); //数据库名
-        const temObj = {};
         dbo
           .collection(colName)
           .aggregate([{ $group: { _id: null, count: { $sum: 1 } } }])
           .toArray(function(err, result) {
             if (err) throw err;
-            temObj.houseNum = result[0].count ? result[0].count : 0;
             ep.emit("getHouseNum", result);
           });
-        ep.after("getHouseNum", 1, function(data) {
           dbo
             .collection(colName)
             .aggregate([
@@ -78,11 +75,8 @@ router.post("/home/searchOverviewData", urlencodedParser, function(req, res) {
             ])
             .toArray(function(err, result) {
               if (err) throw err;
-              temObj.avgUnitPrice = result[0].count ? result[0].count : 0;
-              ep.emit("getUnitPrice", temObj);
+              ep.emit("getUnitPrice", result);
             });
-        });
-        ep.after("getUnitPrice", 1, function(data) {
           dbo
             .collection(colName)
             .aggregate([
@@ -91,11 +85,8 @@ router.post("/home/searchOverviewData", urlencodedParser, function(req, res) {
             ])
             .toArray(function(err, result) {
               if (err) throw err;
-              temObj.avgListedPrice = result[0].count ? result[0].count : 0;
-              ep.emit("getListedPrice", temObj);
+              ep.emit("getListedPrice", result);
             });
-        });
-        ep.after("getListedPrice", 1, function(data) {
           dbo
             .collection(colName)
             .aggregate([
@@ -104,18 +95,38 @@ router.post("/home/searchOverviewData", urlencodedParser, function(req, res) {
             ])
             .toArray(function(err, result) {
               if (err) throw err;
-              temObj.avgTotalPrice = result[0].count ? result[0].count : 0;
-              ep.emit("getTotalPrice", temObj);
+              ep.emit("getTotalPrice", result);
             });
+        dbo
+        .collection(colName)
+        .aggregate([
+          { $group: { _id: null, count: { $avg: "$size" } } }
+        ])
+        .toArray(function(err, result) {
+          if (err) throw err;
+          ep.emit("getAvgSize", result);
+          db.close();
+        });
+      dbo
+        .collection(colName)
+        .aggregate([
+          { $group: { _id: null, count: { $avg: "$dealPeriod" } } }
+        ])
+        .toArray(function(err, result) {
+          if (err) throw err;
+          ep.emit("getDealPeriod", result);
+          db.close();
         });
     });
-    ep.after("getTotalPrice", 1, function(data) {
+    ep.all("getHouseNum","getUnitPrice","getListedPrice","getTotalPrice","getAvgSize","getDealPeriod",  function(data1, data2, data3, data4, data5, data6) {
       res.send({
         data: {
-          houseNum: data[0].houseNum, //房源数量(int)
-          avgUnitPrice:data[0]. avgUnitPrice, //平均单价(float)
-          avgListedPrice: data[0].avgListedPrice, //平均挂牌总价(float)
-          avgTotalPrice: data[0].avgTotalPrice //平均成交总价(float)
+          houseNum: data1[0].count ? data1[0].count : null, //房源数量(int)
+            avgUnitPrice: data2[0].count ? data2[0].count : null, //平均单价(float)
+            avgListedPrice: data3[0].count ? data3[0].count : null, //平均挂牌总价(float)
+            avgTotalPrice: data4[0].count ? data4[0].count : null, //平均成交总价(float)
+            avgSize: data5[0].count ? data5[0].count : null,
+            avgDealPeriod: data6[0].count ? data6[0].count : null,
         },
         errorCode: "0", //0表示成功
         errorMsg: ""
@@ -136,301 +147,119 @@ router.post("/home/searchOverviewData", urlencodedParser, function(req, res) {
 router.post("/home/searchDonutData", urlencodedParser, function(req, res) {
   console.log("获取饼图数据", req.body.type);
   //请求成功
-  if (req.body && req.body.type && req.body.type >= 1 && req.body.type <= 4) {
+  if (req.body && req.body.type && req.body.type >= 1 && req.body.type <= 7) {
     // 连接数据库
     MongoClient.connect(url, function(err, db) {
       if (err) throw err;
       var dbo = db.db("lianjiaSpider"); //数据库名
       switch (req.body.type) {
-        // 1按地区房源数量
-        case 1:
-          for (let i in colNameArr) {
-            const temObj = {};
-            temObj.item = colNameArr[i];
-            dbo
-              .collection(colNameArr[i])
-              .aggregate([{ $group: { _id: null, count: { $sum: 1 } } }])
-              .toArray(function(err, result) {
-                if (err) throw err;
-                temObj.count = result[0].count ? result[0].count : 0;
-                ep.emit("getDonutData", temObj);
-              });
-          }
+         //5按电梯
+         case 5:
+         dbo
+           .collection(colName)
+           .aggregate([
+             {
+               $match: {
+                elevator: { $ne: NaN }
+               }
+             },
+             { $group: { _id: "$elevator", count: { $sum: 1 } },
+             
+            },
+            { $project:{item:"$_id",count:1,_id:0}}
+           ])
+           .toArray(function(err, result) {
+             if (err) throw err;
+             res.send({
+              data: {
+                filterData: result[0] ? result : null
+              },
+              errorCode: "0", //0表示成功
+              errorMsg: ""
+            });
+            db.close();
+           });
+       break;
+       //6按朝向
+       case 6:
+       dbo
+         .collection(colName)
+         .aggregate([
+           {
+             $match: {
+              toward: { $ne: NaN }
+             }
+           },
+           { $group: { _id: "$toward", count: { $sum: 1 } },
+           
+          },
+          { $project:{item:"$_id",count:1,_id:0}}
+         ])
+         .toArray(function(err, result) {
+           if (err) throw err;
+           res.send({
+            data: {
+              filterData: result[0] ? result : null
+            },
+            errorCode: "0", //0表示成功
+            errorMsg: ""
+          });
           db.close();
-          break;
-        //2按户型
-        case 2:
-          for (let i in colNameArr) {
-            dbo
-              .collection(colNameArr[i])
-              .aggregate([
-                {
-                  $match: {
-                    name: { $ne: NaN },
-                    layout: { $regex: /\d室\d厅/ }
-                  }
-                },
-                { $group: { _id: "$layout", count: { $sum: 1 } } }
-              ])
-              .toArray(function(err, result) {
-                if (err) throw err;
-                ep.emit("getDonutData", result);
-              });
-          }
-          db.close();
-          break;
-        //3按价格区间
-        case 3:
-          for (let i in colNameArr) {
-            const temArr = [];
-            // <=100w
-            dbo
-              .collection(colNameArr[i])
-              .aggregate([
-                {
-                  $match: {
-                    totalPrice: { $ne: NaN, $lte: 100 }
-                  }
-                },
-                { $group: { _id: null, count: { $sum: 1 } } }
-              ])
-              .toArray(function(err, result) {
-                if (err) throw err;
-                if (result[0]) result[0]._id = "100万以下";
-                temArr.push(
-                  result[0] ? result[0] : { _id: "100万以下", count: 0 }
-                );
-              });
-            //100-150w
-            dbo
-              .collection(colNameArr[i])
-              .aggregate([
-                {
-                  $match: {
-                    totalPrice: { $gt: 100, $lte: 150 }
-                  }
-                },
-                { $group: { _id: null, count: { $sum: 1 } } }
-              ])
-              .toArray(function(err, result) {
-                if (err) throw err;
-                if (result[0]) result[0]._id = "100万-150万";
-                temArr.push(
-                  result[0] ? result[0] : { _id: "100万-150万", count: 0 }
-                );
-              });
-            // 150-200w
-            dbo
-              .collection(colNameArr[i])
-              .aggregate([
-                {
-                  $match: {
-                    totalPrice: { $gt: 150, $lte: 200 }
-                  }
-                },
-                { $group: { _id: null, count: { $sum: 1 } } }
-              ])
-              .toArray(function(err, result) {
-                if (err) throw err;
-                if (result[0]) result[0]._id = "150万-200万";
-                temArr.push(
-                  result[0] ? result[0] : { _id: "150万-200万", count: 0 }
-                );
-              });
-            //200-250w
-            dbo
-              .collection(colNameArr[i])
-              .aggregate([
-                {
-                  $match: {
-                    totalPrice: { $gt: 200, $lte: 250 }
-                  }
-                },
-                { $group: { _id: null, count: { $sum: 1 } } }
-              ])
-              .toArray(function(err, result) {
-                if (err) throw err;
-                if (result[0]) result[0]._id = "200万-250万";
-                temArr.push(
-                  result[0] ? result[0] : { _id: "200万-250万", count: 0 }
-                );
-              });
-            //250-300w
-            dbo
-              .collection(colNameArr[i])
-              .aggregate([
-                {
-                  $match: {
-                    totalPrice: { $gt: 250, $lte: 300 }
-                  }
-                },
-                { $group: { _id: null, count: { $sum: 1 } } }
-              ])
-              .toArray(function(err, result) {
-                if (err) throw err;
-                if (result[0]) result[0]._id = "250万-300万";
-                temArr.push(
-                  result[0] ? result[0] : { _id: "250万-300万", count: 0 }
-                );
-              });
-            //>=300w
-            dbo
-              .collection(colNameArr[i])
-              .aggregate([
-                {
-                  $match: {
-                    totalPrice: { $ne: NaN, $gte: 300 }
-                  }
-                },
-                { $group: { _id: null, count: { $sum: 1 } } }
-              ])
-              .toArray(function(err, result) {
-                if (err) throw err;
-                if (result[0]) result[0]._id = "大于300万";
-                temArr.push(
-                  result[0] ? result[0] : { _id: "大于300万", count: 0 }
-                );
-                ep.emit("getDonutData", temArr);
-              });
-          }
-          db.close();
-          break;
-        //4按面积
-        case 4:
-          for (let i in colNameArr) {
-            const temArr = [];
-            // <=40
-            dbo
-              .collection(colNameArr[i])
-              .aggregate([
-                {
-                  $match: {
-                    size: { $ne: NaN, $lte: 40 }
-                  }
-                },
-                { $group: { _id: null, count: { $sum: 1 } } }
-              ])
-              .toArray(function(err, result) {
-                if (err) throw err;
-                if (result[0]) result[0]._id = "40平以下";
-                temArr.push(
-                  result[0] ? result[0] : { _id: "40平以下", count: 0 }
-                );
-              });
-            //40-60
-            dbo
-              .collection(colNameArr[i])
-              .aggregate([
-                {
-                  $match: {
-                    size: { $gt: 40, $lte: 60 }
-                  }
-                },
-                { $group: { _id: null, count: { $sum: 1 } } }
-              ])
-              .toArray(function(err, result) {
-                if (err) throw err;
-                if (result[0]) result[0]._id = "40平-60平";
-                temArr.push(
-                  result[0] ? result[0] : { _id: "40平-60平", count: 0 }
-                );
-              });
-            // 60-80
-            dbo
-              .collection(colNameArr[i])
-              .aggregate([
-                {
-                  $match: {
-                    size: { $gt: 60, $lte: 80 }
-                  }
-                },
-                { $group: { _id: null, count: { $sum: 1 } } }
-              ])
-              .toArray(function(err, result) {
-                if (err) throw err;
-                if (result[0]) result[0]._id = "60平-80平";
-                temArr.push(
-                  result[0] ? result[0] : { _id: "60平-80平", count: 0 }
-                );
-              });
-            //80-100
-            dbo
-              .collection(colNameArr[i])
-              .aggregate([
-                {
-                  $match: {
-                    size: { $gt: 80, $lte: 100 }
-                  }
-                },
-                { $group: { _id: null, count: { $sum: 1 } } }
-              ])
-              .toArray(function(err, result) {
-                if (err) throw err;
-                if (result[0]) result[0]._id = "80平-100平";
-                temArr.push(
-                  result[0] ? result[0] : { _id: "80平-100平", count: 0 }
-                );
-              });
-            //100-120
-            dbo
-              .collection(colNameArr[i])
-              .aggregate([
-                {
-                  $match: {
-                    size: { $gt: 100, $lte: 120 }
-                  }
-                },
-                { $group: { _id: null, count: { $sum: 1 } } }
-              ])
-              .toArray(function(err, result) {
-                if (err) throw err;
-                if (result[0]) result[0]._id = "100平-120平";
-                temArr.push(
-                  result[0] ? result[0] : { _id: "100平-120平", count: 0 }
-                );
-              });
-            //>=120
-            dbo
-              .collection(colNameArr[i])
-              .aggregate([
-                {
-                  $match: {
-                    size: { $ne: NaN, $gte: 120 }
-                  }
-                },
-                { $group: { _id: null, count: { $sum: 1 } } }
-              ])
-              .toArray(function(err, result) {
-                if (err) throw err;
-                if (result[0]) result[0]._id = "大于120平";
-                temArr.push(
-                  result[0] ? result[0] : { _id: "大于120平", count: 0 }
-                );
-                ep.emit("getDonutData", temArr);
-              });
-          }
-          db.close();
-          break;
-        default:
-          for (let i = 0; i < colNameArr.length; i++) {
-            ep.emit("getDonutData", []);
-          }
-      }
-    });
-    ep.after("getDonutData", colNameArr.length, function(data) {
-      var resArr = []; //最终数据
-      if (req.body.type !== 2 && req.body.type !== 3 && req.body.type !== 4) {
-        resArr = data.slice();
-      } else {
-        resArr = Classify(data);
-      }
-      res.send({
+         });
+     break;
+     //7按装修
+     case 7:
+     dbo
+       .collection(colName)
+       .aggregate([
+         {
+           $match: {
+            decoration: { $ne: NaN }
+           }
+         },
+         { $group: { _id: "$decoration", count: { $sum: 1 } },
+         
+        },
+        { $project:{item:"$_id",count:1,_id:0}}
+       ])
+       .toArray(function(err, result) {
+         if (err) throw err;
+         res.send({
+          data: {
+            filterData: result[0] ? result : null
+          },
+          errorCode: "0", //0表示成功
+          errorMsg: ""
+        });
+        db.close();
+       });
+   break;
+     default:
+     dbo
+     .collection(colName)
+     .aggregate([
+       {
+         $match: {
+          elevator: { $ne: NaN }
+         }
+       },
+       { $group: { _id: "$elevator", count: { $sum: 1 } },
+       
+      },
+      { $project:{item:"$_id",count:1,_id:0}}
+     ])
+     .toArray(function(err, result) {
+       if (err) throw err;
+       res.send({
         data: {
-          filterData: resArr
+          filterData: result[0] ? result : null
         },
         errorCode: "0", //0表示成功
         errorMsg: ""
       });
+      db.close();
+     });
+      }
     });
   }
   //请求失败
@@ -1139,6 +968,110 @@ router.post("/home/searchDonutData4", urlencodedParser, function(req, res) {
       res.send({
         data: {
           filterData: resArr
+        },
+        errorCode: "0", //0表示成功
+        errorMsg: ""
+      });
+    });
+  }
+  //请求失败
+  else {
+    res.send({
+      data: {},
+      errorCode: "1", //0表示成功
+      errorMsg: "请求失败"
+    });
+  }
+});
+
+/**获取装修与平均单价关系图数据**/
+router.post("/home/searchDecorPriceData", urlencodedParser, function(
+  req,
+  res
+) {
+  console.log("获取装修与平均成交价关系图数据");
+  //请求成功
+  if (req.body) {
+    // 连接数据库
+    MongoClient.connect(url, function(err, db) {
+      if (err) throw err;
+      var dbo = db.db("lianjiaSpider"); //数据库名
+      dbo
+        .collection(colName)
+        .aggregate([
+          {
+            $match: {
+              unitPrice: { $ne: NaN }
+            }
+          },
+          {$group:{_id:"$decoration",count:{$avg:"$unitPrice"}}},
+          { $project: { item: "$_id", count:1,_id:0 } }
+        ])
+        .toArray(function(err, result) {
+          if (err) throw err;
+          ep.emit("getDecorPriceData", result);
+        });
+    });
+    ep.all("getDecorPriceData", function(data1) {
+      res.send({
+        data: {
+          filterData: data1[0] ? data1 : null
+        },
+        errorCode: "0", //0表示成功
+        errorMsg: ""
+      });
+    });
+  }
+  //请求失败
+  else {
+    res.send({
+      data: {},
+      errorCode: "1", //0表示成功
+      errorMsg: "请求失败"
+    });
+  }
+});
+
+/**获取装修与价格箱型图数据**/
+router.post("/home/searchDecorBoxData", urlencodedParser, function(
+  req,
+  res
+) {
+  console.log("获取装修与价格箱型图数据");
+  //请求成功
+  if (req.body) {
+    // 连接数据库
+    MongoClient.connect(url, function(err, db) {
+      if (err) throw err;
+      var dbo = db.db("lianjiaSpider"); //数据库名
+      dbo
+        .collection(colName)
+        .aggregate([
+          {
+            $match: {
+              unitPrice: { $ne: NaN,$ne: 0 }
+            }
+          },
+          {$group:{_id:"$decoration",low:{$min:"$unitPrice"},high:{$max:"$unitPrice"},array:{$push:"$unitPrice"}}},
+          { $project: { x:"$_id",low: 1, high:1 ,array:1,_id:0} },
+        ])
+        .toArray(function(err, result) {
+          if (err) throw err;
+          const temArr=result.map(item=>({
+            x:item.x,
+            low:item.low,
+            high:item.high,
+            q3:item.array.sort()[parseInt(item.array.length/4*3)],
+            q1:item.array.sort()[parseInt(item.array.length/4)],
+            median:item.array.length%2===0? (item.array.sort()[parseInt(item.array.length/2)]+item.array.sort()[parseInt(item.array.length/2+1)])/2:item.array.sort()[parseInt((item.array.length+1)/2)]
+          }));
+          ep.emit("getDecorBoxData1", temArr);
+        });
+    });
+    ep.all("getDecorBoxData1", function(data) {
+      res.send({
+        data: {
+          filterData: data[0] ? data : null
         },
         errorCode: "0", //0表示成功
         errorMsg: ""
