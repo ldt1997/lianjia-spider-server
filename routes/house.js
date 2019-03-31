@@ -292,7 +292,36 @@ router.post("/house/searchDonutData", urlencodedParser, function(req, res) {
               {
                 $match: {
                   position: colName,
-                  toward: { $ne: NaN }
+                    $or:[
+                      {
+                        toward:"东"
+                      },
+                      {
+                        toward:"南"
+                      },
+                      {
+                        toward:"西"
+                      },
+                      {
+                        toward:"北"
+                      }
+                      ,
+                      {
+                        toward:"东北"
+                      }
+                      ,
+                      {
+                        toward:"西北"
+                      }
+                      ,
+                      {
+                        toward:"东南"
+                      }
+                      ,
+                      {
+                        toward:"西南"
+                      }
+                    ]
                 }
               },
               { $group: { _id: "$toward", count: { $sum: 1 } } },

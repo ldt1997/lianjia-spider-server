@@ -187,7 +187,37 @@ router.post("/home/searchDonutData", urlencodedParser, function(req, res) {
          .aggregate([
            {
              $match: {
-              toward: { $ne: NaN }
+              // toward: /东|南|西|北/
+              $or:[
+                {
+                  toward:"东"
+                },
+                {
+                  toward:"南"
+                },
+                {
+                  toward:"西"
+                },
+                {
+                  toward:"北"
+                }
+                ,
+                {
+                  toward:"东北"
+                }
+                ,
+                {
+                  toward:"西北"
+                }
+                ,
+                {
+                  toward:"东南"
+                }
+                ,
+                {
+                  toward:"西南"
+                }
+              ]
              }
            },
            { $group: { _id: "$toward", count: { $sum: 1 } },
