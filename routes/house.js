@@ -130,7 +130,7 @@ router.post("/house/searchOverviewData", urlencodedParser, function(req, res) {
           db.close();
         });
     });
-    
+
     ep.all(
       "getHouseNum",
       "getAvgUnitPrice",
@@ -146,7 +146,7 @@ router.post("/house/searchOverviewData", urlencodedParser, function(req, res) {
             avgListedPrice: data3[0].count ? data3[0].count : null, //平均挂牌总价(float)
             avgTotalPrice: data4[0].count ? data4[0].count : null, //平均成交总价(float)
             avgSize: data5[0].count ? data5[0].count : null,
-            avgDealPeriod: data6[0].count ? data6[0].count : null,
+            avgDealPeriod: data6[0].count ? data6[0].count : null
           },
           errorCode: "0", //0表示成功
           errorMsg: ""
@@ -285,43 +285,39 @@ router.post("/house/searchDonutData", urlencodedParser, function(req, res) {
               db.close();
             });
           break;
-          case 3:
+        case 3:
           dbo
             .collection(housesColName)
             .aggregate([
               {
                 $match: {
                   position: colName,
-                    $or:[
-                      {
-                        toward:"东"
-                      },
-                      {
-                        toward:"南"
-                      },
-                      {
-                        toward:"西"
-                      },
-                      {
-                        toward:"北"
-                      }
-                      ,
-                      {
-                        toward:"东北"
-                      }
-                      ,
-                      {
-                        toward:"西北"
-                      }
-                      ,
-                      {
-                        toward:"东南"
-                      }
-                      ,
-                      {
-                        toward:"西南"
-                      }
-                    ]
+                  $or: [
+                    {
+                      toward: "东"
+                    },
+                    {
+                      toward: "南"
+                    },
+                    {
+                      toward: "西"
+                    },
+                    {
+                      toward: "北"
+                    },
+                    {
+                      toward: "东北"
+                    },
+                    {
+                      toward: "西北"
+                    },
+                    {
+                      toward: "东南"
+                    },
+                    {
+                      toward: "西南"
+                    }
+                  ]
                 }
               },
               { $group: { _id: "$toward", count: { $sum: 1 } } },
@@ -340,7 +336,7 @@ router.post("/house/searchDonutData", urlencodedParser, function(req, res) {
               db.close();
             });
           break;
-          case 4:
+        case 4:
           dbo
             .collection(housesColName)
             .aggregate([
@@ -532,7 +528,7 @@ router.post("/house/searchBarChartData", urlencodedParser, function(req, res) {
           "100万-150万",
           "150万-200万",
           "200万-250万",
-          "250万-3000万",
+          "250万-300万",
           "300万以上"
         ];
         for (let i = 0; i < temArr.length; i++) {
@@ -633,7 +629,7 @@ router.post("/house/searchCurvedLineChartData", urlencodedParser, function(
           },
           { $project: { item: "$size", listedPrice: 1, totalPrice: 1 } }
         ])
-        .limit(100)
+        .limit(500)
         .toArray(function(err, result) {
           if (err) throw err;
           ep.emit("getCurvedLineChartData", result);
@@ -681,8 +677,8 @@ router.post("/house/searchDecorPriceData", urlencodedParser, function(
               unitPrice: { $ne: NaN }
             }
           },
-          {$group:{_id:"$decoration",count:{$avg:"$unitPrice"}}},
-          { $project: { item: "$_id", count:1,_id:0 } }
+          { $group: { _id: "$decoration", count: { $avg: "$unitPrice" } } },
+          { $project: { item: "$_id", count: 1, _id: 0 } }
         ])
         .toArray(function(err, result) {
           if (err) throw err;
@@ -710,10 +706,7 @@ router.post("/house/searchDecorPriceData", urlencodedParser, function(
 });
 
 /**获取装修与价格箱型图数据**/
-router.post("/house/searchDecorBoxData", urlencodedParser, function(
-  req,
-  res
-) {
+router.post("/house/searchDecorBoxData", urlencodedParser, function(req, res) {
   console.log("获取装修与价格箱型图数据", req.body.position);
   //请求成功
   if (req.body && req.body.position) {
@@ -728,21 +721,33 @@ router.post("/house/searchDecorBoxData", urlencodedParser, function(
           {
             $match: {
               position: colName,
-              unitPrice: { $ne: NaN,$ne: 0 }
+              unitPrice: { $ne: NaN, $ne: 0 }
             }
           },
-          {$group:{_id:"$decoration",low:{$min:"$unitPrice"},high:{$max:"$unitPrice"},array:{$push:"$unitPrice"}}},
-          { $project: { x:"$_id",low: 1, high:1 ,array:1,_id:0} },
+          {
+            $group: {
+              _id: "$decoration",
+              low: { $min: "$unitPrice" },
+              high: { $max: "$unitPrice" },
+              array: { $push: "$unitPrice" }
+            }
+          },
+          { $project: { x: "$_id", low: 1, high: 1, array: 1, _id: 0 } }
         ])
         .toArray(function(err, result) {
           if (err) throw err;
-          const temArr=result.map(item=>({
-            x:item.x,
-            low:item.low,
-            high:item.high,
-            q3:item.array.sort()[parseInt(item.array.length/4*3)],
-            q1:item.array.sort()[parseInt(item.array.length/4)],
-            median:item.array.length%2===0? (item.array.sort()[parseInt(item.array.length/2)]+item.array.sort()[parseInt(item.array.length/2+1)])/2:item.array.sort()[parseInt((item.array.length+1)/2)]
+          const temArr = result.map(item => ({
+            x: item.x,
+            low: item.low,
+            high: item.high,
+            q3: item.array.sort()[parseInt((item.array.length / 4) * 3)],
+            q1: item.array.sort()[parseInt(item.array.length / 4)],
+            median:
+              item.array.length % 2 === 0
+                ? (item.array.sort()[parseInt(item.array.length / 2)] +
+                    item.array.sort()[parseInt(item.array.length / 2 + 1)]) /
+                  2
+                : item.array.sort()[parseInt((item.array.length + 1) / 2)]
           }));
           ep.emit("getDecorBoxData1", temArr);
         });
